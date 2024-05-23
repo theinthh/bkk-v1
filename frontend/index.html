@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style/normalize.css" />
+    <link rel="stylesheet" href="style/main.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="scripts/leaflet-heat.js"></script>
+    <script src="scripts/translation.js"></script>
+    <script src="scripts/googleCharts.js"></script>
+    <script defer src="scripts/currentTime.js"></script>
+
+    <title id="title_text">Live Dashboard BKK</title>
+</head>
+
+<body>
+    <h1 id="currenttime" class=""></h1>
+    <select id="language-dropdown" onchange="languageChanged()">
+        <option value="English" id="english_option" class="translate">English</option>
+        <option value="Hungarian" id="hungarian_option" class="translate">Hungarian</option>
+    </select>
+    <div id="bkkMap"></div>
+    <div>
+        <h1 id="chart_1_title" class="translate">Strict Lateness Check (Any lateness greater than 0 seconds)</h1>
+        <div id="histogram_div" style="width: 900px; height: 500px; display: inline-block;"></div>
+        <div id="histogram_pred_div" style="width: 900px; height: 500px; display: inline-block;"></div>
+    </div>
+    <div>
+        <h1 id="chart_2_title" class="translate">Lenient Lateness Check (Any lateness greater than 60 seconds)</h1>
+        <div id="histogram_n_div" style="width: 900px; height: 500px; display: inline-block;"></div>
+        <div id="histogram_pred_n_div" style="width: 900px; height: 500px; display: inline-block;"></div>
+    </div>
+
+    <div id="scatter_div" style="width: 90vw; height: 100vh;"></div>
+    <div id="top_div" style="width: 600px; height: 500px; display: inline-block;"></div>
+    <div id="bottom_div" style="width: 600px; height: 500px; display: inline-block;"></div>
+</body>
+<script>
+    var currentLateness = [[0, 0, 0]];
+    var histogramHeader = [['number', 'Percentage Late', { type: 'string', role: 'style' }]];
+    var histogram_data = histogramHeader.concat([["0", 0, ""]]);
+    var histogram_pred_data = histogramHeader.concat([["0", 0, ""]]);
+    var histogram_data_n = histogramHeader.concat([["0", 0, ""]]);
+    var histogram_pred_data_n = histogramHeader.concat([["0", 0, ""]]);
+    var scatter_data = [['test', 'test'], [0, 0]];
+    var topHeader = [['Route', 'Lateness', { role: 'style' }, { type: 'string', role: 'tooltip' }]];
+    var top_data = topHeader.concat([["0", 0, "#ffffff", ""]]);
+    var bottomHeader = [['Route', 'Lateness', { role: 'style' }, { type: 'string', role: 'tooltip' }]];
+    var bottom_data = bottomHeader.concat([["0", 0, "fill: #ffffff", ""]]);
+    window.addEventListener('load', function () {
+        const ws = new WebSocket("ws://localhost:61354/ws?");
+        ws.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+            console.log("Data received from server", data);
+            currentLateness = data.currentLateness;
+            histogram_data = histogramHeader.concat(data.histogram);
+            histogram_pred_data = histogramHeader.concat(data.histogram_pred);
+            histogram_data_n = histogramHeader.concat(data.histogram_n);
+            histogram_pred_data_n = histogramHeader.concat(data.histogram_pred_n);
+            scatter_data = data.scatter;
+            top_data = topHeader.concat(data.topbottom[0]);
+            bottom_data = bottomHeader.concat(data.topbottom[1]);
+
+            drawAll();
+        };
+
+        ws.onopen = function (event) {
+            console.log("Connected to WebSocket server.");
+        };
+
+        ws.onerror = function (event) {
+            console.error("WebSocket error observed:", event);
+        };
+
+        ws.onclose = function (event) {
+            console.log("Disconnected from WebSocket server.");
+        };
+    });
+
+</script>
+
+<script>
+    var bkkMap = L.map('bkkMap').setView([47.497913, 19.040236], 13);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(bkkMap);
+
+    var latenessHeatmap = L.heatLayer(currentLateness,
+        {
+            radius: 25,
+            max: 10,
+            gradient: {
+                .3: "yellow",
+                .6: "orange",
+                1: "red"
+            },
+            blur: 25
+
+        }).addTo(bkkMap);
+
+    function addPoints() {
+        latenessHeatmap.setLatLngs(currentLateness);
+    }
+</script>
+
+</html>
